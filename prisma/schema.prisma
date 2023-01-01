@@ -1,0 +1,105 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["referentialIntegrity"]
+}
+
+datasource db {
+  provider             = "mysql"
+  url                  = env("DATABASE_URL")
+  referentialIntegrity = "prisma"
+}
+
+model Opositor {
+  id          String                @id @default(uuid())
+  name        String
+  nif         String
+  oposiciones OpositorOnOposicion[]
+  results     Result[]
+
+  @@unique([name, nif])
+  @@index([name, nif])
+}
+
+model Oposicion {
+  id             String                @id @default(uuid())
+  name           NameOposicion
+  grupo          GrupoOposicionModel   @relation(fields: [grupoId], references: [grupo])
+  grupoId        GrupoOposicion
+  year           Int
+  numPlazas      Int
+  numPresentados Int?
+  numAprobados   Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ejerciciosNum  EjercicioNum[]
+  opositores     OpositorOnOposicion[]
+  results        Result[]
+
+  @@unique([name, year])
+  @@index([name, year])
+}
+
+model Result {
+  id            String         @id @default(uuid())
+  presentado    Boolean
+  aprobado      Boolean?
+  ejerciciosInd EjercicioInd[]
+  opositor      Opositor       @relation(fields: [opositorId], references: [id])
+  opositorId    String
+  oposicion     Oposicion      @relation(fields: [oposicionId], references: [id])
+  oposicionId   String
+
+  @@index([opositorId, oposicionId])
+}
+
+model EjercicioNum {
+  id           String    @id @default(uuid())
+  numEj        Int
+  numAprobados Int
+  oposicion    Oposicion @relation(fields: [oposicionId], references: [id])
+  oposicionId  String
+
+  @@unique([numEj, oposicionId])
+  @@index([oposicionId])
+}
+
+model EjercicioInd {
+  id       String  @id @default(uuid())
+  numEj    Int
+  aprobado Boolean
+  result   Result  @relation(fields: [resultId], references: [id])
+  resultId String
+
+  @@unique([numEj, resultId])
+  @@index([resultId])
+}
+
+model OpositorOnOposicion {
+  oposicion   Oposicion @relation(fields: [oposicionId], references: [id])
+  oposicionId String
+  opositor    Opositor  @relation(fields: [opositorId], references: [id])
+  opositorId  String
+
+  @@id([oposicionId, opositorId])
+  @@index([oposicionId, opositorId])
+}
+
+model GrupoOposicionModel {
+  grupo     GrupoOposicion @id
+  oposicion Oposicion[]
+
+  @@index([grupo])
+}
+
+enum NameOposicion {
+  THAC
+  IHAC
+}
+
+enum GrupoOposicion {
+  A1
+  A2
+}
