@@ -280,6 +280,7 @@ export function Explorer() {
                                 pr={2}
                                 pb={2}
                                 display='flex'
+                                justifyContent='center'
                                 alignItems='center'
                                 h='100%'
                             >
@@ -295,6 +296,7 @@ export function Explorer() {
                                 pr={2}
                                 pb={2}
                                 display='flex'
+                                justifyContent='center'
                                 alignItems='center'
                                 h='100%'
                             >
@@ -310,6 +312,7 @@ export function Explorer() {
                                 pr={2}
                                 pb={2}
                                 display='flex'
+                                justifyContent='center'
                                 alignItems='center'
                                 h='100%'
                             >
@@ -325,6 +328,7 @@ export function Explorer() {
                                 pr={2}
                                 pb={2}
                                 display='flex'
+                                justifyContent='center'
                                 alignItems='center'
                                 h='100%'
                             >
@@ -340,6 +344,7 @@ export function Explorer() {
                                 pr={2}
                                 pb={2}
                                 display='flex'
+                                justifyContent='center'
                                 alignItems='center'
                                 h='100%'
                             >
