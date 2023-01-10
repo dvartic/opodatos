@@ -1,15 +1,9 @@
 "use client";
 
 import {
-    Accordion,
-    AccordionButton,
-    AccordionIcon,
-    AccordionItem,
-    AccordionPanel,
     Box,
     Button,
     Checkbox,
-    Divider,
     Drawer,
     DrawerBody,
     DrawerCloseButton,
@@ -21,15 +15,9 @@ import {
     Grid,
     GridItem,
     HStack,
-    Icon,
     IconButton,
     InputGroup,
-    RangeSlider,
-    RangeSliderFilledTrack,
-    RangeSliderThumb,
-    RangeSliderTrack,
     Select,
-    SliderMark,
     Stack,
     Text,
     useColorModeValue,
@@ -37,28 +25,233 @@ import {
     useMediaQuery,
     VStack,
 } from "@chakra-ui/react";
-import { useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { SearchBox } from "./search-box";
 import { FaColumns } from "react-icons/fa";
-import { ChevronDownIcon } from "@chakra-ui/icons";
+import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import { FaSlidersH } from "react-icons/fa";
 import { useFooterIsInView } from "../../app/FooterInViewContext";
 import { AccordionFilters } from "./accordion-filters";
+import { OposicionProps } from "../../app/buscador/page";
 
-export function Explorer() {
-    // Search state
+export function Explorer({ oposiciones }: OposicionProps) {
+    // Search state and handlers
     const [searchStr, setSearchStr] = useState("");
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchStr(e.target.value);
+    };
+
+    // Selected Convocatoria State and handlers
+    const years = Object.keys(oposiciones).reverse();
+    const lastConvocatoria = years[0];
+    const [selectedConvocatoria, setSelectedConvocatoria] =
+        useState(lastConvocatoria);
+    function handleConvocatoriaChange(e: React.ChangeEvent<HTMLSelectElement>) {
+        setSelectedConvocatoria(e.target.value);
+    }
+
+    // Selected Oposicion State and handlers
+    const [selectedOposiciones, setSelectedOposiciones] = useState(
+        [] as string[]
+    );
+    function handleCheckboxChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const { value, checked } = e.target;
+        if (checked) {
+            setSelectedOposiciones((prevCheckedItems) => [
+                ...prevCheckedItems,
+                value,
+            ]);
+        } else {
+            setSelectedOposiciones((prevCheckedItems) =>
+                prevCheckedItems.filter((item) => item !== value)
+            );
+        }
+    }
+    function handleClearSelection() {
+        setSelectedOposiciones([]);
+    }
+
+    // Sort state and handlers
+    const [sortBy, setSortBy] = useState("grupo");
+    const [sortOrder, setSortOrder] = useState("asc");
+    function handleClickSortBy(
+        e: React.MouseEvent<HTMLButtonElement> &
+            React.MouseEvent<HTMLDivElement>
+    ) {
+        const { value } = e.currentTarget;
+        if (value === sortBy) {
+            setSortOrder((prevSortOrder) => {
+                if (prevSortOrder === "asc") {
+                    return "desc";
+                } else {
+                    return "asc";
+                }
+            });
+        } else {
+            setSortBy(value);
+            setSortOrder("asc");
+        }
+    }
+
+    // Filter state
+
+    // Perform filter, sorting and seach on oposiciones based on states
+    const filteredOposiciones = oposiciones[Number(selectedConvocatoria)];
+
+    const sortedFilteredOposicionesArray = Object.keys(filteredOposiciones)
+        .map((name) => filteredOposiciones[name])
+        .sort((a, b) => {
+            if (sortBy === "oposicion") {
+                if (sortOrder === "asc") {
+                    return a.name.localeCompare(b.name);
+                } else {
+                    return b.name.localeCompare(a.name);
+                }
+            } else if (sortBy === "grupo") {
+                const grupoBaseOrder = ["A1", "A2", "C1", "C2", "E"];
+                if (sortOrder === "asc") {
+                    return (
+                        grupoBaseOrder.indexOf(a.grupo.grupo) -
+                        grupoBaseOrder.indexOf(b.grupo.grupo)
+                    );
+                } else {
+                    return (
+                        grupoBaseOrder.indexOf(b.grupo.grupo) -
+                        grupoBaseOrder.indexOf(a.grupo.grupo)
+                    );
+                }
+            } else if (sortBy === "plazas") {
+                if (sortOrder === "asc") {
+                    return a.numPlazas - b.numPlazas;
+                } else {
+                    return b.numPlazas - a.numPlazas;
+                }
+            } else if (sortBy === "aspirantes") {
+                if (sortOrder === "asc") {
+                    if (!a.numPresentados && b.numPresentados) {
+                        return 1;
+                    } else if (a.numPresentados && !b.numPresentados) {
+                        return -1;
+                    } else if (!a.numPresentados && !b.numPresentados) {
+                        return 0;
+                    } else if (a.numPresentados && b.numPresentados) {
+                        return a.numPresentados - b.numPresentados;
+                    } else {
+                        return 0;
+                    }
+                } else {
+                    if (!a.numPresentados && b.numPresentados) {
+                        return -1;
+                    } else if (a.numPresentados && !b.numPresentados) {
+                        return 1;
+                    } else if (!a.numPresentados && !b.numPresentados) {
+                        return 0;
+                    } else if (a.numPresentados && b.numPresentados) {
+                        return b.numPresentados - a.numPresentados;
+                    } else {
+                        return 0;
+                    }
+                }
+            } else if (sortBy === "aspirantesPlaza") {
+                const aAspirantesPlaza = a.numPresentados
+                    ? a.numPresentados / a.numPlazas
+                    : 0;
+                const bAspirantesPlaza = b.numPresentados
+                    ? b.numPresentados / b.numPlazas
+                    : 0;
+
+                if (sortOrder === "asc") {
+                    return aAspirantesPlaza - bAspirantesPlaza;
+                } else {
+                    return bAspirantesPlaza - aAspirantesPlaza;
+                }
+            } else if ("experienceAverage") {
+                const aExperienceAverage = a.experienceAverage
+                    ? a.experienceAverage
+                    : 0;
+                const bExperienceAverage = b.experienceAverage
+                    ? b.experienceAverage
+                    : 0;
+                if (sortOrder === "asc") {
+                    return aExperienceAverage - bExperienceAverage;
+                } else {
+                    return bExperienceAverage - aExperienceAverage;
+                }
+            } else {
+                return 0;
+            }
+        });
+
+    // Calculate filter values for display in filter component
+    const filterValues = useMemo(() => {
+        const grupoArr = Object.keys(filteredOposiciones).map((name) => {
+            return filteredOposiciones[name].grupo.grupo;
+        });
+        const plazasArr = Object.keys(filteredOposiciones).map((name) => {
+            return filteredOposiciones[name].numPlazas;
+        });
+        const aspirantesArr = Object.keys(filteredOposiciones).map((name) => {
+            if (filteredOposiciones[name].numPresentados) {
+                return filteredOposiciones[name].numPresentados as number;
+            } else {
+                return 0;
+            }
+        });
+        const aspirantesPlazaArr = Object.keys(filteredOposiciones).map(
+            (name) => {
+                if (filteredOposiciones[name].numPresentados) {
+                    return (
+                        (filteredOposiciones[name].numPresentados as number) /
+                        filteredOposiciones[name].numPlazas
+                    );
+                } else {
+                    return 0;
+                }
+            }
+        );
+        const experienceAverageArr = Object.keys(filteredOposiciones).map(
+            (name) => {
+                if (filteredOposiciones[name].experienceAverage) {
+                    return filteredOposiciones[name]
+                        .experienceAverage as number;
+                } else {
+                    return 0;
+                }
+            }
+        );
+        return {
+            grupos: [...new Set(grupoArr)].sort((a, b) => {
+                const grupoBaseOrder = ["A1", "A2", "C1", "C2", "E"];
+                return (
+                    grupoBaseOrder.indexOf(a) - grupoBaseOrder.indexOf(b)
+                );
+            }),
+            plazas: [Math.min(...plazasArr), Math.max(...plazasArr)],
+            aspirantes: [
+                Math.min(...aspirantesArr),
+                Math.max(...aspirantesArr),
+            ],
+            aspirantesPlaza: [
+                Math.min(...aspirantesPlazaArr),
+                Math.max(...aspirantesPlazaArr),
+            ],
+            experienceAverage: [
+                Math.min(...experienceAverageArr),
+                Math.max(...experienceAverageArr),
+            ],
+        };
+    }, [filteredOposiciones]);
 
     // Footer is in view Context to hide filter button on mobile devices when footer is in view.
     const footerIsInView = useFooterIsInView();
 
-    // You need the value at which the footer starts to show up in the viewport. 0 - 154. Necesitas al height del footer. Necesitas el total height indicado desde cliente.
-
     const bg = useColorModeValue("gray.100", "gray.700");
     const buttonColor = useColorModeValue("blue.500", "blue.300");
     const buttonHoverColor = useColorModeValue("blue.700", "blue.500");
+    const buttonActiveColor = useColorModeValue("blue.800", "blue.400");
     const borderColor = useColorModeValue("gray.700", "gray.400");
     const gridBg = useColorModeValue("white", "gray.900");
+    const headerColor = useColorModeValue("black", "white");
 
     const [
         isBiggerThan973,
@@ -71,10 +264,6 @@ export function Explorer() {
         "(max-width: 301px)",
         "(max-width: 480px)",
     ]);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchStr(e.target.value);
-    };
 
     // Detects wether the device supports hover or not through a media query, and executes a simple logic to assign a different text-decoration property.
     const [isHoverNotSupported] = useMediaQuery("(hover: none)");
@@ -121,8 +310,6 @@ export function Explorer() {
                     position="fixed"
                     bottom={6}
                     left="5%"
-
-                    /* Que desaparezca en base a scroll para evitar encima de footer */
                 />
             ) : null}
             <Box
@@ -132,7 +319,7 @@ export function Explorer() {
                 mr="auto"
                 backgroundColor={bg}
                 borderRadius="md"
-                p={{base: 2, sm: 3, md: 4, lg: 6}}
+                p={{ base: 2, sm: 3, md: 4, lg: 6 }}
                 mt="auto"
                 mb="auto"
             >
@@ -142,7 +329,7 @@ export function Explorer() {
                     {isBiggerThan973 ? (
                         <VStack w={200} spacing={3} justify="space-between">
                             {/* Accordion with group */}
-                            <AccordionFilters />
+                            <AccordionFilters filterValues={filterValues} />
                             <Button w="100%" colorScheme="green">
                                 Reiniciar Filtros
                             </Button>{" "}
@@ -160,7 +347,9 @@ export function Explorer() {
                                 <DrawerCloseButton />
                                 <DrawerHeader>Filtrado de datos</DrawerHeader>
                                 <DrawerBody>
-                                    <AccordionFilters />
+                                    <AccordionFilters
+                                        filterValues={filterValues}
+                                    />
                                 </DrawerBody>
                                 <DrawerFooter>
                                     <Button w="100%" colorScheme="green">
@@ -183,8 +372,9 @@ export function Explorer() {
                             pb={2}
                             spacing={4}
                         >
-                            <Text fontSize={{base: 'sm', sm: 'md', md: 'lg'}}>
-                                {"3"} Oposiciones Encontradas
+                            <Text fontSize={{ base: "sm", sm: "md", md: "lg" }}>
+                                {sortedFilteredOposicionesArray.length}{" "}
+                                Oposiciones Encontradas
                             </Text>
                             <SearchBox
                                 searchStr={searchStr}
@@ -193,21 +383,43 @@ export function Explorer() {
                         </HStack>
                         <HStack w="100%" align="center" justify="space-between">
                             <HStack
-                                spacing={{base: 3, sm: 6, md: 10}}
+                                spacing={{ base: 3, sm: 6, md: 10 }}
                                 align="center"
                                 justify="center"
                             >
                                 <VStack spacing={3} align="start">
-                                    <Text fontSize={{base: 'xs', sm: 'xs', md: 'sm'}}>{"2"} Seleccionadas</Text>
+                                    <Text
+                                        fontSize={{
+                                            base: "xs",
+                                            sm: "xs",
+                                            md: "sm",
+                                        }}
+                                    >
+                                        {selectedOposiciones.length}{" "}
+                                        Seleccionadas
+                                    </Text>
                                     <Button
                                         m={0}
                                         p={0}
                                         h="fit-content"
                                         backgroundColor="transparent"
-                                        colorScheme="blue"
                                         color={buttonColor}
                                         _hover={hover()}
-                                        fontSize={{base: '2xs', sm: 'xs', md: 'sm'}}
+                                        _active={{
+                                            backgroundColor: "transparent",
+                                            color: buttonActiveColor,
+                                        }}
+                                        fontSize={{
+                                            base: "2xs",
+                                            sm: "xs",
+                                            md: "sm",
+                                        }}
+                                        onClick={handleClearSelection}
+                                        visibility={
+                                            selectedOposiciones.length > 0
+                                                ? "visible"
+                                                : "hidden"
+                                        }
                                     >
                                         Eliminar Selección
                                     </Button>
@@ -215,7 +427,7 @@ export function Explorer() {
                                 <Button
                                     colorScheme="teal"
                                     rightIcon={<FaColumns />}
-                                    size={{base: 'sm', sm: 'sm', md: 'md'}}
+                                    size={{ base: "sm", sm: "sm", md: "md" }}
                                 >
                                     Comparar
                                 </Button>
@@ -228,10 +440,16 @@ export function Explorer() {
                                         md: "sm",
                                     }}
                                     icon={<ChevronDownIcon />}
-                                    placeholder="Convocatoria"
+                                    value={selectedConvocatoria}
+                                    onChange={handleConvocatoriaChange}
                                 >
-                                    <option value="integral">2021</option>
-                                    <option value="contable">2022</option>
+                                    {years.map((year, index) => {
+                                        return (
+                                            <option key={index} value={year}>
+                                                {year}
+                                            </option>
+                                        );
+                                    })}
                                 </Select>
                             </InputGroup>
                         </HStack>
@@ -245,8 +463,9 @@ export function Explorer() {
                             justifyItems="center"
                             alignItems="center"
                             fontSize="sm"
-                            overflow='scroll'
+                            overflow="scroll"
                         >
+                            {/* TABLE HEADER */}
                             <GridItem
                                 borderBottom="1px"
                                 borderColor="gray.300"
@@ -257,147 +476,355 @@ export function Explorer() {
                             </GridItem>
                             <GridItem
                                 borderBottom="1px"
-                                borderColor="gray.300"
+                                borderColor={
+                                    sortBy === "oposicion"
+                                        ? "blue.500"
+                                        : "gray.300"
+                                }
                                 w="100%"
                                 alignSelf="end"
                                 textAlign="start"
-                                pl={2}
-                                pr={2}
+                                pl={1}
+                                pr={1}
                                 pb={2}
-                                display='flex'
-                                alignItems='center'
-                                h='100%'
+                                display="flex"
+                                justifyContent="space-between"
+                                alignItems="center"
+                                h="100%"
                             >
-                                Oposición
+                                <Button
+                                    w="100%"
+                                    display="flex"
+                                    justifyContent="space-between"
+                                    m={0}
+                                    p={0}
+                                    h="fit-content"
+                                    backgroundColor="transparent"
+                                    color={headerColor}
+                                    _hover={hover()}
+                                    _active={{
+                                        backgroundColor: "transparent",
+                                        color: buttonActiveColor,
+                                    }}
+                                    fontSize="inherit"
+                                    value="oposicion"
+                                    onClick={handleClickSortBy}
+                                >
+                                    Oposición
+                                    {sortBy === "oposicion" ? (
+                                        sortOrder === "asc" ? (
+                                            <ChevronDownIcon />
+                                        ) : (
+                                            <ChevronUpIcon />
+                                        )
+                                    ) : (
+                                        <ChevronDownIcon visibility="hidden" />
+                                    )}
+                                </Button>
                             </GridItem>
                             <GridItem
                                 borderBottom="1px"
-                                borderColor="gray.300"
+                                borderColor={
+                                    sortBy === "grupo" ? "blue.500" : "gray.300"
+                                }
                                 w="100%"
                                 alignSelf="end"
                                 textAlign="center"
-                                pl={2}
-                                pr={2}
+                                pl={1}
+                                pr={1}
                                 pb={2}
-                                display='flex'
-                                justifyContent='center'
-                                alignItems='center'
-                                h='100%'
+                                display="flex"
+                                justifyContent="center"
+                                alignItems="center"
+                                h="100%"
                             >
-                                Grupo
+                                <Button
+                                    w="100%"
+                                    display="flex"
+                                    justifyContent="space-between"
+                                    m={0}
+                                    p={0}
+                                    h="fit-content"
+                                    backgroundColor="transparent"
+                                    color={headerColor}
+                                    _hover={hover()}
+                                    _active={{
+                                        backgroundColor: "transparent",
+                                        color: buttonActiveColor,
+                                    }}
+                                    fontSize="inherit"
+                                    value="grupo"
+                                    onClick={handleClickSortBy}
+                                >
+                                    <Box w="14px" />
+                                    Grupo
+                                    {sortBy === "grupo" ? (
+                                        sortOrder === "asc" ? (
+                                            <ChevronDownIcon />
+                                        ) : (
+                                            <ChevronUpIcon />
+                                        )
+                                    ) : (
+                                        <ChevronDownIcon visibility="hidden" />
+                                    )}
+                                </Button>
                             </GridItem>
                             <GridItem
                                 borderBottom="1px"
-                                borderColor="gray.300"
+                                borderColor={
+                                    sortBy === "plazas"
+                                        ? "blue.500"
+                                        : "gray.300"
+                                }
                                 w="100%"
                                 alignSelf="end"
                                 textAlign="center"
-                                pl={2}
-                                pr={2}
+                                pl={1}
+                                pr={1}
                                 pb={2}
-                                display='flex'
-                                justifyContent='center'
-                                alignItems='center'
-                                h='100%'
+                                display="flex"
+                                justifyContent="center"
+                                alignItems="center"
+                                h="100%"
                             >
-                                Plazas
+                                <Button
+                                    w="100%"
+                                    display="flex"
+                                    justifyContent="space-between"
+                                    m={0}
+                                    p={0}
+                                    h="fit-content"
+                                    backgroundColor="transparent"
+                                    color={headerColor}
+                                    _hover={hover()}
+                                    _active={{
+                                        backgroundColor: "transparent",
+                                        color: buttonActiveColor,
+                                    }}
+                                    fontSize="inherit"
+                                    value="plazas"
+                                    onClick={handleClickSortBy}
+                                >
+                                    <Box w="14px" />
+                                    Plazas
+                                    {sortBy === "plazas" ? (
+                                        sortOrder === "asc" ? (
+                                            <ChevronDownIcon />
+                                        ) : (
+                                            <ChevronUpIcon />
+                                        )
+                                    ) : (
+                                        <ChevronDownIcon visibility="hidden" />
+                                    )}
+                                </Button>
                             </GridItem>
                             <GridItem
                                 borderBottom="1px"
-                                borderColor="gray.300"
+                                borderColor={
+                                    sortBy === "aspirantes"
+                                        ? "blue.500"
+                                        : "gray.300"
+                                }
                                 w="100%"
                                 alignSelf="end"
                                 textAlign="center"
-                                pl={2}
-                                pr={2}
+                                pl={1}
+                                pr={1}
                                 pb={2}
-                                display='flex'
-                                justifyContent='center'
-                                alignItems='center'
-                                h='100%'
+                                display="flex"
+                                justifyContent="center"
+                                alignItems="center"
+                                h="100%"
                             >
-                                Aspirantes
+                                <Button
+                                    w="100%"
+                                    display="flex"
+                                    justifyContent="space-between"
+                                    m={0}
+                                    p={0}
+                                    h="fit-content"
+                                    backgroundColor="transparent"
+                                    color={headerColor}
+                                    _hover={hover()}
+                                    _active={{
+                                        backgroundColor: "transparent",
+                                        color: buttonActiveColor,
+                                    }}
+                                    fontSize="inherit"
+                                    value="aspirantes"
+                                    onClick={handleClickSortBy}
+                                >
+                                    <Box w="14px" />
+                                    Aspirantes
+                                    {sortBy === "aspirantes" ? (
+                                        sortOrder === "asc" ? (
+                                            <ChevronDownIcon />
+                                        ) : (
+                                            <ChevronUpIcon />
+                                        )
+                                    ) : (
+                                        <ChevronDownIcon visibility="hidden" />
+                                    )}
+                                </Button>
                             </GridItem>
                             <GridItem
                                 borderBottom="1px"
-                                borderColor="gray.300"
+                                borderColor={
+                                    sortBy === "aspirantesPlaza"
+                                        ? "blue.500"
+                                        : "gray.300"
+                                }
                                 w="100%"
                                 alignSelf="end"
                                 textAlign="center"
-                                pl={2}
-                                pr={2}
+                                pl={1}
+                                pr={1}
                                 pb={2}
-                                display='flex'
-                                justifyContent='center'
-                                alignItems='center'
-                                h='100%'
+                                display="flex"
+                                justifyContent="center"
+                                alignItems="center"
+                                h="100%"
                             >
-                                Aspirantes / Plaza
+                                <Box
+                                    as="button"
+                                    w="100%"
+                                    display="flex"
+                                    justifyContent="space-between"
+                                    alignItems="center"
+                                    fontWeight="bold"
+                                    m={0}
+                                    p={0}
+                                    h="fit-content"
+                                    backgroundColor="transparent"
+                                    color={headerColor}
+                                    _hover={hover()}
+                                    _active={{
+                                        backgroundColor: "transparent",
+                                        color: buttonActiveColor,
+                                    }}
+                                    fontSize="inherit"
+                                    value="aspirantesPlaza"
+                                    onClick={handleClickSortBy}
+                                >
+                                    <Box w="14px" flexShrink={0} />
+                                    <Box>Aspirantes / Plaza</Box>
+                                    {sortBy === "aspirantesPlaza" ? (
+                                        sortOrder === "asc" ? (
+                                            <ChevronDownIcon />
+                                        ) : (
+                                            <ChevronUpIcon />
+                                        )
+                                    ) : (
+                                        <ChevronDownIcon visibility="hidden" />
+                                    )}
+                                </Box>
                             </GridItem>
                             <GridItem
                                 borderBottom="1px"
-                                borderColor="gray.300"
+                                borderColor={
+                                    sortBy === "experienceAverage"
+                                        ? "blue.500"
+                                        : "gray.300"
+                                }
                                 w="100%"
                                 alignSelf="end"
                                 textAlign="center"
-                                pl={2}
-                                pr={2}
+                                pl={1}
+                                pr={1}
                                 pb={2}
-                                display='flex'
-                                justifyContent='center'
-                                alignItems='center'
-                                h='100%'
+                                display="flex"
+                                justifyContent="center"
+                                alignItems="center"
+                                h="100%"
                             >
-                                Media Exp. Aprobados (Años)
+                                <Box
+                                    as="button"
+                                    w="100%"
+                                    display="flex"
+                                    justifyContent="space-between"
+                                    alignItems="center"
+                                    m={0}
+                                    p={0}
+                                    h="fit-content"
+                                    backgroundColor="transparent"
+                                    fontWeight="bold"
+                                    color={headerColor}
+                                    _hover={hover()}
+                                    _active={{
+                                        backgroundColor: "transparent",
+                                        color: buttonActiveColor,
+                                    }}
+                                    fontSize="inherit"
+                                    value="experienceAverage"
+                                    onClick={handleClickSortBy}
+                                >
+                                    <Box w="14px" flexShrink={0} />
+                                    <Box>Media Exp. Aprobados (Años)</Box>
+                                    {sortBy === "experienceAverage" ? (
+                                        sortOrder === "asc" ? (
+                                            <ChevronDownIcon />
+                                        ) : (
+                                            <ChevronUpIcon />
+                                        )
+                                    ) : (
+                                        <ChevronDownIcon visibility="hidden" />
+                                    )}
+                                </Box>
                             </GridItem>
 
-                            {/* Content */}
+                            {/* TABLE CONTENT */}
+                            {sortedFilteredOposicionesArray.map(
+                                (oposicion, index) => {
+                                    const name = oposicion.name;
 
-                            {/* Row1 */}
-                            <GridItem pl={2} pr={2}>
-                                <Checkbox colorScheme={"blue"} size="md" />
-                            </GridItem>
-                            <GridItem pl={2} pr={2} justifySelf='start'>
-                                Inspector de Hacienda
-                            </GridItem>
-                            <GridItem pl={2} pr={2}>
-                                A1
-                            </GridItem>
-                            <GridItem pl={2} pr={2}>
-                                150
-                            </GridItem>
-                            <GridItem pl={2} pr={2}>
-                                1600
-                            </GridItem>
-                            <GridItem pl={2} pr={2}>
-                                10.67
-                            </GridItem>
-                            <GridItem pl={2} pr={2}>
-                                5
-                            </GridItem>
-
-                            {/* Row2 */}
-                            <GridItem pl={2} pr={2}>
-                                <Checkbox colorScheme={"blue"} size="md" />
-                            </GridItem>
-                            <GridItem pl={2} pr={2} justifySelf='start'>
-                                Inspector de Hacienda
-                            </GridItem>
-                            <GridItem pl={2} pr={2}>
-                                A1
-                            </GridItem>
-                            <GridItem pl={2} pr={2}>
-                                150
-                            </GridItem>
-                            <GridItem pl={2} pr={2}>
-                                1600
-                            </GridItem>
-                            <GridItem pl={2} pr={2}>
-                                10.67
-                            </GridItem>
-                            <GridItem pl={2} pr={2}>
-                                5
-                            </GridItem>
+                                    return (
+                                        <React.Fragment key={index}>
+                                            <GridItem pl={2} pr={2}>
+                                                <Checkbox
+                                                    colorScheme={"blue"}
+                                                    size="md"
+                                                    value={name}
+                                                    onChange={
+                                                        handleCheckboxChange
+                                                    }
+                                                    isChecked={selectedOposiciones.includes(
+                                                        name
+                                                    )}
+                                                />
+                                            </GridItem>
+                                            <GridItem
+                                                pl={2}
+                                                pr={2}
+                                                justifySelf="start"
+                                            >
+                                                {oposicion.longName}
+                                            </GridItem>
+                                            <GridItem pl={2} pr={2}>
+                                                {oposicion.grupo.grupo}
+                                            </GridItem>
+                                            <GridItem pl={2} pr={2}>
+                                                {oposicion.numPlazas}
+                                            </GridItem>
+                                            <GridItem pl={2} pr={2}>
+                                                {oposicion.numPresentados}
+                                            </GridItem>
+                                            <GridItem pl={2} pr={2}>
+                                                {oposicion.numPresentados
+                                                    ? (
+                                                          oposicion.numPresentados /
+                                                          oposicion.numPlazas
+                                                      ).toFixed(2)
+                                                    : "N/A"}
+                                            </GridItem>
+                                            <GridItem pl={2} pr={2}>
+                                                {!oposicion.experienceAverage
+                                                    ? "N/A"
+                                                    : oposicion.experienceAverage}
+                                            </GridItem>
+                                        </React.Fragment>
+                                    );
+                                }
+                            )}
                         </Grid>
                     </VStack>
                 </Stack>
