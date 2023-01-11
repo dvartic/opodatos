@@ -4,13 +4,6 @@ import {
     Box,
     Button,
     Checkbox,
-    Drawer,
-    DrawerBody,
-    DrawerCloseButton,
-    DrawerContent,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerOverlay,
     Flex,
     Grid,
     GridItem,
@@ -25,21 +18,22 @@ import {
     useMediaQuery,
     VStack,
 } from "@chakra-ui/react";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { SearchBox } from "./search-box";
 import { FaColumns } from "react-icons/fa";
 import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import { FaSlidersH } from "react-icons/fa";
 import { useFooterIsInView } from "../../app/FooterInViewContext";
-import { AccordionFilters } from "./accordion-filters";
 import { OposicionProps } from "../../app/buscador/page";
+import { Filters } from "./filters";
+import { normalizeStr } from "../../server/utils/utils";
 
 export function Explorer({ oposiciones }: OposicionProps) {
-    // Search state and handlers
-    const [searchStr, setSearchStr] = useState("");
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchStr(e.target.value);
-    };
+    // Search state and handlers. The parent holds a state that gets set by the child after the user stops writing.
+    const [searchStrParent, setSearchStrParent] = useState("");
+    function updateSearchStrParent(searchStr: string) {
+        setSearchStrParent(searchStr);
+    }
 
     // Selected Convocatoria State and handlers
     const years = Object.keys(oposiciones).reverse();
@@ -93,10 +87,171 @@ export function Explorer({ oposiciones }: OposicionProps) {
         }
     }
 
-    // Filter state
-
     // Perform filter, sorting and seach on oposiciones based on states
-    const filteredOposiciones = oposiciones[Number(selectedConvocatoria)];
+    const oposicionesByConvocatoria = oposiciones[Number(selectedConvocatoria)];
+
+    // Perform search based on searchStrParent
+    const oposicionesNamesSearch = Object.keys(
+        oposicionesByConvocatoria
+    ).filter((name) => {
+        const oposicionLongName = oposicionesByConvocatoria[name].longName;
+        return normalizeStr(oposicionLongName).includes(
+            normalizeStr(searchStrParent)
+        );
+    });
+    const oposicionesByConvocatoriaAndSearch = oposicionesNamesSearch.reduce(
+        (acc, name) => {
+            acc[name] = oposicionesByConvocatoria[name];
+            return acc;
+        },
+        {} as typeof oposicionesByConvocatoria
+    );
+
+    /* Calculate filter values for display in filter component and initialize filter state
+    Initialize filter state based on this initial values. This state will be updated by child component using the handlers.
+    Based on this filter state, perform filtering for display
+    */
+    const filterValues = useMemo(() => {
+        const grupoArr = Object.keys(oposicionesByConvocatoriaAndSearch).map(
+            (name) => {
+                return oposicionesByConvocatoriaAndSearch[name].grupo.grupo;
+            }
+        );
+        const plazasArr = Object.keys(oposicionesByConvocatoriaAndSearch).map(
+            (name) => {
+                return oposicionesByConvocatoriaAndSearch[name].numPlazas;
+            }
+        );
+        const aspirantesArr = Object.keys(
+            oposicionesByConvocatoriaAndSearch
+        ).map((name) => {
+            if (oposicionesByConvocatoriaAndSearch[name].numPresentados) {
+                return oposicionesByConvocatoriaAndSearch[name]
+                    .numPresentados as number;
+            } else {
+                return 0;
+            }
+        });
+        const aspirantesPlazaArr = Object.keys(
+            oposicionesByConvocatoriaAndSearch
+        ).map((name) => {
+            if (oposicionesByConvocatoriaAndSearch[name].numPresentados) {
+                return (
+                    (oposicionesByConvocatoriaAndSearch[name]
+                        .numPresentados as number) /
+                    oposicionesByConvocatoriaAndSearch[name].numPlazas
+                );
+            } else {
+                return 0;
+            }
+        });
+        const experienceAverageArr = Object.keys(
+            oposicionesByConvocatoriaAndSearch
+        ).map((name) => {
+            if (oposicionesByConvocatoriaAndSearch[name].experienceAverage) {
+                return oposicionesByConvocatoriaAndSearch[name]
+                    .experienceAverage as number;
+            } else {
+                return 0;
+            }
+        });
+        return {
+            grupos: [...new Set(grupoArr)].sort((a, b) => {
+                const grupoBaseOrder = ["A1", "A2", "C1", "C2", "E"];
+                return grupoBaseOrder.indexOf(a) - grupoBaseOrder.indexOf(b);
+            }),
+            plazas: [Math.min(...plazasArr), Math.max(...plazasArr)],
+            aspirantes: [
+                Math.min(...aspirantesArr),
+                Math.max(...aspirantesArr),
+            ],
+            aspirantesPlaza: [
+                Math.min(...aspirantesPlazaArr),
+                Math.max(...aspirantesPlazaArr),
+            ],
+            experienceAverage: [
+                Math.min(...experienceAverageArr),
+                Math.max(...experienceAverageArr),
+            ],
+        };
+    }, [oposicionesByConvocatoriaAndSearch]);
+
+    const [filterStateParent, setFilterStateParent] = useState(filterValues);
+
+    function updateFilterStateParent(filterState: typeof filterValues) {
+        setFilterStateParent(filterState);
+    }
+
+    const isFilterInactive = useMemo(() => {
+        return (
+            JSON.stringify(filterStateParent) === JSON.stringify(filterValues)
+        );
+    }, [filterStateParent, filterValues]);
+
+    const filteredOposicionesNames = Object.keys(
+        oposicionesByConvocatoriaAndSearch
+    ).filter((name) => {
+        const oposicion = oposicionesByConvocatoriaAndSearch[name];
+
+        // Perform filtering based on filterStateParent
+
+        // Filter by grupo
+        if (!filterStateParent.grupos.includes(oposicion.grupo.grupo)) {
+            return false;
+        }
+        // Filter by plazas
+        else if (
+            oposicion.numPlazas < filterStateParent.plazas[0] ||
+            oposicion.numPlazas > filterStateParent.plazas[1]
+        ) {
+            return false;
+        }
+        // Filter by aspirantes
+        else if (
+            (oposicion.numPresentados &&
+                (oposicion.numPresentados < filterStateParent.aspirantes[0] ||
+                    oposicion.numPresentados >
+                        filterStateParent.aspirantes[1])) ||
+            (JSON.stringify(filterStateParent.aspirantes) !==
+                JSON.stringify(filterValues.aspirantes) &&
+                !oposicion.numPresentados)
+        ) {
+            return false;
+        }
+        // Filter by aspirantes/plaza
+        else if (
+            (oposicion.numPresentados &&
+                (oposicion.numPresentados / oposicion.numPlazas <
+                    filterStateParent.aspirantesPlaza[0] ||
+                    oposicion.numPresentados / oposicion.numPlazas >
+                        filterStateParent.aspirantesPlaza[1])) ||
+            (JSON.stringify(filterStateParent.aspirantesPlaza) !==
+                JSON.stringify(filterValues.aspirantesPlaza) &&
+                !oposicion.numPresentados)
+        ) {
+            return false;
+        }
+
+        // Filter by experienceAverage
+        else if (
+            (oposicion.experienceAverage &&
+                (oposicion.experienceAverage <
+                    filterStateParent.experienceAverage[0] ||
+                    oposicion.experienceAverage >
+                        filterStateParent.experienceAverage[1])) ||
+            (JSON.stringify(filterStateParent.experienceAverage) !==
+                JSON.stringify(filterValues.experienceAverage) &&
+                !oposicion.experienceAverage)
+        ) {
+            return false;
+        } else {
+            return true;
+        }
+    });
+    const filteredOposiciones = filteredOposicionesNames.reduce((acc, name) => {
+        acc[name] = oposicionesByConvocatoriaAndSearch[name];
+        return acc;
+    }, {} as typeof oposicionesByConvocatoriaAndSearch);
 
     const sortedFilteredOposicionesArray = Object.keys(filteredOposiciones)
         .map((name) => filteredOposiciones[name])
@@ -182,66 +337,6 @@ export function Explorer({ oposiciones }: OposicionProps) {
             }
         });
 
-    // Calculate filter values for display in filter component
-    const filterValues = useMemo(() => {
-        const grupoArr = Object.keys(filteredOposiciones).map((name) => {
-            return filteredOposiciones[name].grupo.grupo;
-        });
-        const plazasArr = Object.keys(filteredOposiciones).map((name) => {
-            return filteredOposiciones[name].numPlazas;
-        });
-        const aspirantesArr = Object.keys(filteredOposiciones).map((name) => {
-            if (filteredOposiciones[name].numPresentados) {
-                return filteredOposiciones[name].numPresentados as number;
-            } else {
-                return 0;
-            }
-        });
-        const aspirantesPlazaArr = Object.keys(filteredOposiciones).map(
-            (name) => {
-                if (filteredOposiciones[name].numPresentados) {
-                    return (
-                        (filteredOposiciones[name].numPresentados as number) /
-                        filteredOposiciones[name].numPlazas
-                    );
-                } else {
-                    return 0;
-                }
-            }
-        );
-        const experienceAverageArr = Object.keys(filteredOposiciones).map(
-            (name) => {
-                if (filteredOposiciones[name].experienceAverage) {
-                    return filteredOposiciones[name]
-                        .experienceAverage as number;
-                } else {
-                    return 0;
-                }
-            }
-        );
-        return {
-            grupos: [...new Set(grupoArr)].sort((a, b) => {
-                const grupoBaseOrder = ["A1", "A2", "C1", "C2", "E"];
-                return (
-                    grupoBaseOrder.indexOf(a) - grupoBaseOrder.indexOf(b)
-                );
-            }),
-            plazas: [Math.min(...plazasArr), Math.max(...plazasArr)],
-            aspirantes: [
-                Math.min(...aspirantesArr),
-                Math.max(...aspirantesArr),
-            ],
-            aspirantesPlaza: [
-                Math.min(...aspirantesPlazaArr),
-                Math.max(...aspirantesPlazaArr),
-            ],
-            experienceAverage: [
-                Math.min(...experienceAverageArr),
-                Math.max(...experienceAverageArr),
-            ],
-        };
-    }, [filteredOposiciones]);
-
     // Footer is in view Context to hide filter button on mobile devices when footer is in view.
     const footerIsInView = useFooterIsInView();
 
@@ -326,39 +421,15 @@ export function Explorer({ oposiciones }: OposicionProps) {
                 <Stack direction="row" spacing={10} w="100%">
                     {/* Component with filters */}
 
-                    {isBiggerThan973 ? (
-                        <VStack w={200} spacing={3} justify="space-between">
-                            {/* Accordion with group */}
-                            <AccordionFilters filterValues={filterValues} />
-                            <Button w="100%" colorScheme="green">
-                                Reiniciar Filtros
-                            </Button>{" "}
-                            {/* DISABLE IF NO FILTERS ARE APPLIED */}
-                        </VStack>
-                    ) : (
-                        <Drawer
-                            isOpen={isOpen}
-                            placement="left"
-                            onClose={onClose}
-                            finalFocusRef={btnRef}
-                        >
-                            <DrawerOverlay />
-                            <DrawerContent>
-                                <DrawerCloseButton />
-                                <DrawerHeader>Filtrado de datos</DrawerHeader>
-                                <DrawerBody>
-                                    <AccordionFilters
-                                        filterValues={filterValues}
-                                    />
-                                </DrawerBody>
-                                <DrawerFooter>
-                                    <Button w="100%" colorScheme="green">
-                                        Reiniciar Filtros
-                                    </Button>
-                                </DrawerFooter>
-                            </DrawerContent>
-                        </Drawer>
-                    )}
+                    <Filters
+                        filterValues={filterValues}
+                        updateFilterStateParent={updateFilterStateParent}
+                        isOpen={isOpen}
+                        onClose={onClose}
+                        btnRef={btnRef}
+                        isBiggerThan973={isBiggerThan973}
+                        isFilterInactive={isFilterInactive}
+                    />
 
                     {/* Main component. May get separated later */}
                     <VStack spacing={5} w="100%">
@@ -377,8 +448,7 @@ export function Explorer({ oposiciones }: OposicionProps) {
                                 Oposiciones Encontradas
                             </Text>
                             <SearchBox
-                                searchStr={searchStr}
-                                handleChange={handleChange}
+                                updateSearchStrParent={updateSearchStrParent}
                             />
                         </HStack>
                         <HStack w="100%" align="center" justify="space-between">

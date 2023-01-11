@@ -17,81 +17,35 @@ import {
     VStack,
 } from "@chakra-ui/react";
 import { GrupoOposicion } from "@prisma/client";
-import { useState } from "react";
 
+interface FilterValues {
+    grupos: GrupoOposicion[];
+    plazas: number[];
+    aspirantes: number[];
+    aspirantesPlaza: number[];
+    experienceAverage: number[];
+}
 interface Props {
-    filterValues: {
-        grupos: GrupoOposicion[];
-        plazas: number[];
-        aspirantes: number[];
-        aspirantesPlaza: number[];
-        experienceAverage: number[];
-    };
+    filterValues: FilterValues;
+    filterState: FilterValues;
+    handleGrupoChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    handlePlazasChange: (values: number[]) => void;
+    handleAspirantesChange: (values: number[]) => void;
+    handleAspirantesPlazaChange: (values: number[]) => void;
+    handleExperienceChange: (values: number[]) => void;
+    postRangeSliderState: () => void;
 }
 
-export function AccordionFilters({ filterValues }: Props) {
-    const [filterState, setFilterState] = useState(filterValues);
-
-    function handleGrupoChange(e: React.ChangeEvent<HTMLInputElement>) {
-        const { value, checked } = e.target;
-        if (checked) {
-            setFilterState((prevFilterState) => {
-                return {
-                    ...prevFilterState,
-                    grupos: [
-                        ...prevFilterState.grupos,
-                        value as GrupoOposicion,
-                    ],
-                };
-            });
-        } else {
-            setFilterState((prevFilterState) => {
-                return {
-                    ...prevFilterState,
-                    grupos: prevFilterState.grupos.filter(
-                        (item) => item !== value
-                    ),
-                };
-            });
-        }
-    }
-
-    function handlePlazasChange(e: number[]) {
-        setFilterState((prevFilterState) => {
-            return {
-                ...prevFilterState,
-                plazas: e,
-            };
-        });
-    }
-
-    function handleAspirantesChange(e: number[]) {
-        setFilterState((prevFilterState) => {
-            return {
-                ...prevFilterState,
-                aspirantes: e,
-            };
-        });
-    }
-
-    function handleAspirantesPlazaChange(e: number[]) {
-        setFilterState((prevFilterState) => {
-            return {
-                ...prevFilterState,
-                aspirantesPlaza: e,
-            };
-        });
-    }
-
-    function handleExperienceChange(e: number[]) {
-        setFilterState((prevFilterState) => {
-            return {
-                ...prevFilterState,
-                experienceAverage: e,
-            };
-        });
-    }
-
+export function AccordionFilters({
+    filterValues,
+    filterState,
+    handleGrupoChange,
+    handlePlazasChange,
+    handleAspirantesChange,
+    handleAspirantesPlazaChange,
+    handleExperienceChange,
+    postRangeSliderState,
+}: Props) {
     return (
         <Accordion w="100%" allowMultiple defaultIndex={[0, 1, 2, 3, 4]}>
             {" "}
@@ -157,6 +111,7 @@ export function AccordionFilters({ filterValues }: Props) {
                             max={filterValues.plazas[1]}
                             value={filterState.plazas}
                             onChange={handlePlazasChange}
+                            onChangeEnd={postRangeSliderState}
                         >
                             <RangeSliderTrack>
                                 <RangeSliderFilledTrack />
@@ -193,6 +148,7 @@ export function AccordionFilters({ filterValues }: Props) {
                             max={filterValues.aspirantes[1]}
                             value={filterState.aspirantes}
                             onChange={handleAspirantesChange}
+                            onChangeEnd={postRangeSliderState}
                         >
                             <RangeSliderTrack>
                                 <RangeSliderFilledTrack />
@@ -233,6 +189,7 @@ export function AccordionFilters({ filterValues }: Props) {
                             max={filterValues.aspirantesPlaza[1]}
                             value={filterState.aspirantesPlaza}
                             onChange={handleAspirantesPlazaChange}
+                            onChangeEnd={postRangeSliderState}
                             step={0.1}
                         >
                             <RangeSliderTrack>
@@ -274,6 +231,7 @@ export function AccordionFilters({ filterValues }: Props) {
                             max={filterValues.experienceAverage[1]}
                             value={filterState.experienceAverage}
                             onChange={handleExperienceChange}
+                            onChangeEnd={postRangeSliderState}
                             step={0.1}
                         >
                             <RangeSliderTrack>
