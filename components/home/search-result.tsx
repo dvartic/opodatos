@@ -24,13 +24,15 @@ interface Props {
 export function SearchResult({ filteredOposiciones }: Props) {
     // Detects wether the device supports hover or not through a media query, and executes a simple logic with memoized value to assign a different text-decoration property.
     const [isHoverNotSupported] = useMediaQuery("(hover: none)");
+    const hoverBg = useColorModeValue("blue.100", "blue.600");
     const hover = () =>
         isHoverNotSupported
             ? { background: "inherit" }
-            : { background: "blue.100" };
+            : { background: hoverBg };
 
     const bg = useColorModeValue("white", "gray.700");
     const resultTextColor = useColorModeValue("gray.600", "gray.400");
+    const activeBg = useColorModeValue("blue.200", "blue.700");
 
     return (
         <Box position="absolute" w="100%" bg={bg} borderRadius="md" mt={1}>
@@ -43,7 +45,7 @@ export function SearchResult({ filteredOposiciones }: Props) {
                         key={index}
                         _hover={hover()}
                         _active={{
-                            background: "blue.200",
+                            background: activeBg,
                         }}
                     >
                         <Box>

@@ -10,6 +10,7 @@ import {
     HStack,
     IconButton,
     InputGroup,
+    Link,
     Select,
     Stack,
     Text,
@@ -27,6 +28,7 @@ import { useFooterIsInView } from "../../app/FooterInViewContext";
 import { OposicionProps } from "../../app/buscador/page";
 import { Filters } from "./filters";
 import { normalizeStr } from "../../server/utils/utils";
+import NextLink from "next/link";
 
 export function Explorer({ oposiciones }: OposicionProps) {
     // Search state and handlers. The parent holds a state that gets set by the child after the user stops writing.
@@ -347,6 +349,7 @@ export function Explorer({ oposiciones }: OposicionProps) {
     const borderColor = useColorModeValue("gray.700", "gray.400");
     const gridBg = useColorModeValue("white", "gray.900");
     const headerColor = useColorModeValue("black", "white");
+    const activeBg = useColorModeValue("blue.200", "blue.700");
 
     const [
         isBiggerThan973,
@@ -414,23 +417,24 @@ export function Explorer({ oposiciones }: OposicionProps) {
                 mr="auto"
                 backgroundColor={bg}
                 borderRadius="md"
+                boxShadow="2xl"
                 p={{ base: 2, sm: 3, md: 4, lg: 6 }}
                 mt="auto"
                 mb="auto"
             >
                 <Stack direction="row" spacing={10} w="100%">
-                    {/* Component with filters */}
-
-                    <Filters
-                        filterValues={filterValues}
-                        updateFilterStateParent={updateFilterStateParent}
-                        isOpen={isOpen}
-                        onClose={onClose}
-                        btnRef={btnRef}
-                        isBiggerThan973={isBiggerThan973}
-                        isFilterInactive={isFilterInactive}
-                    />
-
+                    {/* Component with filters. React Keyed Fragment will force a new component when filterValues changes (which changes based on selected convocatoria) */}
+                    <React.Fragment key={JSON.stringify(filterValues)}>
+                        <Filters
+                            filterValues={filterValues}
+                            updateFilterStateParent={updateFilterStateParent}
+                            isOpen={isOpen}
+                            onClose={onClose}
+                            btnRef={btnRef}
+                            isBiggerThan973={isBiggerThan973}
+                            isFilterInactive={isFilterInactive}
+                        />
+                    </React.Fragment>
                     {/* Main component. May get separated later */}
                     <VStack spacing={5} w="100%">
                         <HStack
@@ -867,7 +871,16 @@ export function Explorer({ oposiciones }: OposicionProps) {
                                                 pr={2}
                                                 justifySelf="start"
                                             >
-                                                {oposicion.longName}
+                                                <Link
+                                                    as={NextLink}
+                                                    href={`/oposiciones/${name}`}
+                                                    _hover={hover()}
+                                                    _active={{
+                                                        color: activeBg,
+                                                    }}
+                                                >
+                                                    {oposicion.longName}
+                                                </Link>
                                             </GridItem>
                                             <GridItem pl={2} pr={2}>
                                                 {oposicion.grupo.grupo}

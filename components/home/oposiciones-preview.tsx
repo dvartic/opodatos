@@ -41,14 +41,16 @@ type oposicionListCompetition = {
 export function OposicionesPreview({ tablesData }: Props) {
     // Detects wether the device supports hover or not through a media query, and executes a simple logic to assign different properties.
     const [isHoverNotSupported] = useMediaQuery("(hover: none)");
+    const hoverBg = useColorModeValue("blue.100", "blue.600");
     const hover = () =>
         isHoverNotSupported
             ? { background: "inherit" }
-            : { background: "blue.100" };
+            : { background: hoverBg };
 
     const bgColor = useColorModeValue("white", "gray.700");
     const subtitleColor = useColorModeValue("gray.700", "gray.500");
     const tableHeaderColor = useColorModeValue("gray.600", "gray.300");
+    const activeBg = useColorModeValue("blue.200", "blue.700");
 
     function getGridRows(arr: any[]) {
         function progression(base: number, d: number) {
@@ -142,6 +144,9 @@ export function OposicionesPreview({ tablesData }: Props) {
                                             <LinkBox
                                                 rounded="md"
                                                 _hover={hover()}
+                                                _active={{
+                                                    background: activeBg,
+                                                }}
                                                 p={1}
                                             >
                                                 <Grid
@@ -281,6 +286,9 @@ export function OposicionesPreview({ tablesData }: Props) {
                                             <LinkBox
                                                 rounded="md"
                                                 _hover={hover()}
+                                                _active={{
+                                                    background: activeBg,
+                                                }}
                                                 p={1}
                                             >
                                                 <Grid
