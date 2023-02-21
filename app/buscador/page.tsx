@@ -1,6 +1,7 @@
 import { Banner } from "../../components/buscador/banner";
 import { Explorer } from "../../components/buscador/explorer";
 import { getLongName } from "../../server/utils/utils";
+import prisma from "../../server/db/client";
 
 export const revalidate = 1800;
 
@@ -42,21 +43,18 @@ async function getBuscadorData() {
         };
     }
 
-    const oposicionesGroupedByYear = oposicionesLongName.reduce(
-        (accumulator, oposicion) => {
-            const year = oposicion.year;
-            const name = oposicion.name;
+    const oposicionesGroupedByYear = oposicionesLongName.reduce((accumulator, oposicion) => {
+        const year = oposicion.year;
+        const name = oposicion.name;
 
-            return {
-                ...accumulator,
-                [year]: {
-                    ...accumulator[year],
-                    [name]: oposicion,
-                },
-            };
-        },
-        {} as Accumulator
-    );
+        return {
+            ...accumulator,
+            [year]: {
+                ...accumulator[year],
+                [name]: oposicion,
+            },
+        };
+    }, {} as Accumulator);
 
     // Calculate average experience of successful candidates by year and oposicion
 
@@ -82,74 +80,54 @@ async function getBuscadorData() {
         const namesArray = Object.keys(oposicionEachYear);
 
         // Perform a reduce loop adding experience to each oposicion. Loop performed based on namesArray, that contains each oposicion name per year.
-        const oposicionWithExperience = namesArray.reduce(
-            (accumulator, name, indexJ) => {
-                // Get currently looped oposicion. Name is resolved.
-                const oposicionCurrent = oposicionEachYear[name];
+        const oposicionWithExperience = namesArray.reduce((accumulator, name, indexJ) => {
+            // Get currently looped oposicion. Name is resolved.
+            const oposicionCurrent = oposicionEachYear[name];
 
-                // Access results array on the current oposicion
-                const results = oposicionCurrent.results;
+            // Access results array on the current oposicion
+            const results = oposicionCurrent.results;
 
-                // Get array with successful candiates IDs for the current process
-                const successfulOpositoresIds = results.filter((opositor) => {
-                    return opositor.aprobado === true;
-                });
+            // Get array with successful candiates IDs for the current process
+            const successfulOpositoresIds = results.filter((opositor) => {
+                return opositor.aprobado === true;
+            });
 
-                // Cross check each successful candidate ID in the currently looped process agains all previous processes of the same oposicion but previous years. Returns an array that adds the experience property to each candidate.
-                const successfulCandidatesExperience =
-                    successfulOpositoresIds.map((opositor) => {
-                        const candidateId = opositor.opositorId;
-                        const previousYears = yearsNumber.slice(
-                            indexI,
-                            objectLenght
-                        );
+            // Cross check each successful candidate ID in the currently looped process agains all previous processes of the same oposicion but previous years. Returns an array that adds the experience property to each candidate.
+            const successfulCandidatesExperience = successfulOpositoresIds.map((opositor) => {
+                const candidateId = opositor.opositorId;
+                const previousYears = yearsNumber.slice(indexI, objectLenght);
 
-                        const experience = previousYears.reduce(
-                            (accumulator, year) => {
-                                const oposicion =
-                                    oposicionesGroupedByYear[year][name];
-                                const results = oposicion.results;
-                                if (
-                                    results.find(
-                                        (opositor) =>
-                                            opositor.opositorId === candidateId
-                                    )
-                                ) {
-                                    return accumulator + 1;
-                                } else {
-                                    return accumulator;
-                                }
-                            },
-                            0
-                        );
+                const experience = previousYears.reduce((accumulator, year) => {
+                    const oposicion = oposicionesGroupedByYear[year][name];
+                    const results = oposicion.results;
+                    if (results.find((opositor) => opositor.opositorId === candidateId)) {
+                        return accumulator + 1;
+                    } else {
+                        return accumulator;
+                    }
+                }, 0);
 
-                        return {
-                            ...opositor,
-                            experience: experience,
-                        };
-                    });
-
-                // Loop  each successful candidate to calculate average experience of all successful candidates
-                const experienceSum = successfulCandidatesExperience.reduce(
-                    (accumulator, opositor) => {
-                        return accumulator + opositor.experience;
-                    },
-                    0
-                );
-                const experienceAverage =
-                    experienceSum / successfulCandidatesExperience.length;
-
-                // Return a new object with the current oposicion and the experienceAverage property of all candidates
                 return {
-                    ...accumulator,
-                    [namesArray[indexJ]]: {
-                        ...oposicionCurrent,
-                        experienceAverage: experienceAverage,
-                    },
+                    ...opositor,
+                    experience: experience,
                 };
-            },
-            {} as OposicionYearExp
-        );
+            });
+
+            // Loop  each successful candidate to calculate average experience of all successful candidates
+            const experienceSum = successfulCandidatesExperience.reduce((accumulator, opositor) => {
+                return accumulator + opositor.experience;
+            }, 0);
+            const experienceAverage = experienceSum / successfulCandidatesExperience.length;
+
+            // Return a new object with the current oposicion and the experienceAverage property of all candidates
+            return {
+                ...accumulator,
+                [namesArray[indexJ]]: {
+                    ...oposicionCurrent,
+                    experienceAverage: experienceAverage,
+                },
+            };
+        }, {} as OposicionYearExp);
 
         // Return a new object that adds each looped oposicion containing the experienceAverage property
         return {

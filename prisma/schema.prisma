@@ -3,13 +3,13 @@
 
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["referentialIntegrity"]
+  relationMode = ["referentialIntegrity"]
 }
 
 datasource db {
   provider             = "mysql"
   url                  = env("DATABASE_URL")
-  referentialIntegrity = "prisma"
+  relationMode = "prisma"
 }
 
 model Opositor {
@@ -39,7 +39,7 @@ model Oposicion {
   results        Result[]
 
   @@unique([name, year])
-  @@index([name, year])
+  @@index([name, year, grupoId])
 }
 
 model Result {

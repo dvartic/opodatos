@@ -44,8 +44,8 @@ export function Header() {
 
     // Detects the current route and stores a different value in the variables, which is then used to change Link navigation colors
     const pathname = usePathname();
-    const isLink1Active = pathname.includes("/blog");
-    const isLink2Active = pathname.includes("/contact");
+    const isLink1Active = pathname?.includes("/blog");
+    const isLink2Active = pathname?.includes("/contact");
     const link1Color = isLink1Active ? activeRouteColorLink : "inherit";
     const link2Color = isLink2Active ? activeRouteColorLink : "inherit";
 

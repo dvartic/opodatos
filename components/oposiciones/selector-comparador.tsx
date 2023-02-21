@@ -15,10 +15,14 @@ import {
     Box,
     useToast,
 } from "@chakra-ui/react";
+import { NameOposicion } from "@prisma/client";
 import { AddIcon } from "@chakra-ui/icons";
 import { OposicionesDataLatestYearReturnType } from "../../app/oposiciones/[slug]/page";
-import { useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSelectorContext } from "../../app/oposiciones/oposicion-selector-context";
+import { useUpdateSelectorContext } from "../../app/oposiciones/oposicion-selector-context";
+import { getOposicionInSlug } from "../../server/utils/utils";
 
 interface Props {
     slug: string | null;
@@ -26,17 +30,32 @@ interface Props {
 }
 
 export function SelectorComparador({ slug, oposicionesDataLatestYear }: Props) {
-    // If slug null, initialize selectedOposicion state with a random oposicion
-    const initialOposicion = slug
-        ? slug
-        : oposicionesDataLatestYear[
-              Math.floor(Math.random() * oposicionesDataLatestYear.length)
-          ].name;
-    const [selectedOposicion, setSelectedOposicion] =
-        useState(initialOposicion);
+    // Access Selector Context Provider Update and States
+    const updateSelectorContext = useUpdateSelectorContext();
+    const { selectedOposicion, secondOposicion } = useSelectorContext();
 
-    // State for second possible card when user presses the "+" button. Initialize state with null (no card)
-    const [secondOposicion, setSecondOposicion] = useState<string | null>(null);
+    // Parse slug string, which can be either NameOposicion or a combination of two NameOposicion
+    const nameOposicionInSlug0 = getOposicionInSlug(0, slug);
+    const nameOposicionInSlug1 = getOposicionInSlug(1, slug);
+
+    // Initialize Selected Oposiciones Context states
+    useEffect(() => {
+        const initialOposicion = nameOposicionInSlug0
+            ? nameOposicionInSlug0
+            : oposicionesDataLatestYear[
+                  Math.floor(Math.random() * oposicionesDataLatestYear.length)
+              ].name;
+        updateSelectorContext(initialOposicion, "selectedOposicion");
+
+        // If slug contains a second oposicion for comparison, initialize secondOposicion Context State with it
+        if (nameOposicionInSlug1) {
+            updateSelectorContext(nameOposicionInSlug1, "secondOposicion");
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Handler and Context State Update for when user presses the "+" button to add new card
     function handleAddRemoveOposicion() {
         if (!secondOposicion) {
             // Initialize secondOposicion state with a random oposicion except the one already selected in the first card
@@ -50,16 +69,17 @@ export function SelectorComparador({ slug, oposicionesDataLatestYear }: Props) {
                         Math.random() * filteredSelectedOnFirstCard.length
                     )
                 ].name;
-            setSecondOposicion(randomOposicionName);
+            updateSelectorContext(randomOposicionName, "secondOposicion");
         } else {
-            setSecondOposicion(null);
+            updateSelectorContext(null, "secondOposicion");
         }
     }
 
     // Handle select and toast to show error if user attempts to select the same oposicion twice
     const toast = useToast();
     function handleSelectOposicion(e: React.ChangeEvent<HTMLSelectElement>) {
-        const { value, id } = e.target;
+        const id = e.target.id;
+        const value = e.target.value as NameOposicion;
         if (id === "card-0") {
             if (value === secondOposicion) {
                 toast({
@@ -72,7 +92,7 @@ export function SelectorComparador({ slug, oposicionesDataLatestYear }: Props) {
                 });
                 return;
             } else {
-                setSelectedOposicion(value);
+                updateSelectorContext(value, "selectedOposicion");
             }
         } else if (id === "card-1") {
             if (value === selectedOposicion) {
@@ -86,7 +106,7 @@ export function SelectorComparador({ slug, oposicionesDataLatestYear }: Props) {
                 });
                 return;
             } else {
-                setSecondOposicion(value);
+                updateSelectorContext(value, "secondOposicion");
             }
         }
     }
@@ -189,7 +209,7 @@ export function SelectorComparador({ slug, oposicionesDataLatestYear }: Props) {
                                             sm: "sm",
                                             md: "md",
                                         }}
-                                        overflow="scroll"
+                                        
                                         backgroundColor={itemBgColor}
                                         borderRadius="md"
                                         border="1px"
@@ -244,6 +264,11 @@ export function SelectorComparador({ slug, oposicionesDataLatestYear }: Props) {
                                         colorScheme="teal"
                                         id={oposicion.name}
                                         onClick={handleAccederOposicion}
+                                        isDisabled={
+                                            slug === oposicion.name
+                                                ? true
+                                                : false
+                                        }
                                     >
                                         Accede a Oposición
                                     </Button>

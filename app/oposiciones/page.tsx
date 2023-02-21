@@ -1,11 +1,10 @@
 import { NameOposicion } from "@prisma/client";
 import { SelectorComparador } from "../../components/oposiciones/selector-comparador";
 import { Banner } from "../../components/oposiciones/banner";
-import {
-    computeLongName,
-    computeAspirantesPlaza,
-    computeExperienceAverage,
-} from "../../server/utils/utils";
+import { computeLongName, computeAspirantesPlaza, computeExperienceAverage } from "../../server/utils/utils";
+import prisma from "../../server/db/client";
+
+export const revalidate = 1800;
 
 async function getOposicionesDataLatestYear() {
     const oposiciones = await prisma.oposicion.findMany({
@@ -30,23 +29,17 @@ async function getOposicionesDataLatestYear() {
         return computeLongName(oposicion);
     });
 
-    const oposicionesWithLongNameAspPlaza = oposicionesLongName.map(
-        (oposicion) => {
-            return computeAspirantesPlaza(oposicion);
-        }
-    );
+    const oposicionesWithLongNameAspPlaza = oposicionesLongName.map((oposicion) => {
+        return computeAspirantesPlaza(oposicion);
+    });
 
-    const oposicionesWithExp = computeExperienceAverage(
-        oposicionesWithLongNameAspPlaza
-    );
+    const oposicionesWithExp = computeExperienceAverage(oposicionesWithLongNameAspPlaza);
 
     // Find latest year for each oposicion and return it
     const oposicionNames = Object.keys(NameOposicion);
     return oposicionNames.map((name) => {
         // Loop over each year until latest year for all oposiciones is found. Rememeber that data is preordered by year already
-        return oposicionesWithExp.find(
-            (oposicion) => name === oposicion.name
-        ) as typeof oposicionesWithExp[0];
+        return oposicionesWithExp.find((oposicion) => name === oposicion.name) as typeof oposicionesWithExp[0];
     });
 }
 
@@ -55,10 +48,7 @@ export default async function Page() {
     return (
         <main>
             <Banner />
-            <SelectorComparador
-                slug={null}
-                oposicionesDataLatestYear={oposicionesDataLatestYear}
-            />
+            <SelectorComparador slug={null} oposicionesDataLatestYear={oposicionesDataLatestYear} />
         </main>
     );
 }
